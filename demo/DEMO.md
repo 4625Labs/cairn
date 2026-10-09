@@ -103,4 +103,4 @@
 | Guild DENY policy | Applied: DENY (merge, delete, update_ref) + ALLOW (9 fixer ops), allow-all row removed. Resources not scoped in Guild; repo scope comes from the GitHub App install (cairn-sandbox only) |
 | Semgrep Guardian hook live | Done: 1 scan, 4 findings on app.py; agent kept the lines; logged to ClickHouse (agent_ignored_finding) |
 | Akash scanner lease | Done: scan ran on Akash (50 findings, `semgrep_rc=0`), logs saved to cairn/akash/akash-logs.txt, 50 `akash-scanner` rows ingested into ClickHouse, lease closed. SDL needed a global `expose` (provider rejected 'zero global services') |
-| Cairn Board on Akash | Done: http://ciciqc4cehdq95evsfu326vj9k.ingress.h6i-dedicated.eu-se-1.digitalfrontier.so (first provider's ingress 404'd although the container was healthy; redeployed on digitalfrontier). Uses read-only ClickHouse user cairn_ro |
+| Cairn Board on Akash | Done: (public Akash URL omitted) (first provider's ingress 404'd although the container was healthy; redeployed on digitalfrontier). Uses read-only ClickHouse user cairn_ro |

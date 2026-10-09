@@ -4,7 +4,7 @@ Host-only, read-only checks. Nothing was flashed, opened, or reset. No file outs
 
 ## 1. Device detected (no contact made)
 - Port: `/dev/cu.usbmodem1101` (only non-system serial port present).
-- USB (ioreg): vendor Espressif (idVendor 12346 = 0x303A), product "USB JTAG_serial debug unit" (idProduct 4097 = 0x1001, the ESP32-S3 built-in USB-Serial/JTAG), serial/MAC string `28:84:85:43:98:18`.
+- USB (ioreg): vendor Espressif (idVendor 12346 = 0x303A), product "USB JTAG_serial debug unit" (idProduct 4097 = 0x1001, the ESP32-S3 built-in USB-Serial/JTAG), serial/MAC string `xx:xx:xx:xx:xx:xx`.
 - Note: stopwatch-screensaver `platformio.ini` hardcodes `/dev/cu.usbmodem112401`; this unit enumerates as `usbmodem1101`. The device's MAC differs from the one in Day 35 RESULTS.md (`...44:60:98`), so this is a different physical unit than the author's.
 - UNVERIFIED: that this is the M5 Stopwatch (VID/PID is generic ESP32-S3). Chip revision, flash size, PSRAM, and the on-flash partition table were NOT read (reading needs esptool, which resets the chip into the bootloader; not done).
 
