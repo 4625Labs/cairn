@@ -1,0 +1,36 @@
+rules:
+  - id: cairn.unpinned-dependency.idf-component-wildcard
+    languages: [generic]
+    severity: ERROR
+    message: idf_component.yml dependency accepts any release ("*" or latest).
+    paths: {include: ["idf_component.yml"]}
+    pattern-regex: '(?m)^[ \t]+[\w/.\-]+:[ \t]*"?(\*|latest)"?[ \t]*$'
+    metadata: {card: unpinned-dependency, seed_shape: true}
+  - id: cairn.unpinned-dependency.idf-component-range
+    languages: [generic]
+    severity: WARNING
+    message: idf_component.yml dependency uses a loose ^/~/>= range.
+    paths: {include: ["idf_component.yml"]}
+    pattern-regex: '(?m)^[ \t]+[\w/.\-]+:[ \t]*"?[\^~>][^"\n]*"?[ \t]*$'
+    metadata: {card: unpinned-dependency}
+  - id: cairn.unpinned-dependency.package-json-range
+    languages: [generic]
+    severity: WARNING
+    message: package.json dependency uses a caret/tilde range.
+    paths: {include: ["package.json"]}
+    pattern-regex: '"[@\w/.\-]+":[ \t]*"[\^~][^"\n]*"'
+    metadata: {card: unpinned-dependency}
+  - id: cairn.unpinned-dependency.lockfile-foreign-host
+    languages: [generic]
+    severity: WARNING
+    message: Lockfile resolved URL points to a host other than registry.npmjs.org.
+    paths: {include: ["package-lock.json"]}
+    pattern-regex: '"resolved":[ \t]*"https?://(?!registry\.npmjs\.org/)[^"\n]*"'
+    metadata: {card: unpinned-dependency}
+  - id: cairn.unpinned-dependency.lockfile-install-script
+    languages: [generic]
+    severity: INFO
+    message: Package runs an install script (hasInstallScript).
+    paths: {include: ["package-lock.json"]}
+    pattern-regex: '"hasInstallScript":[ \t]*true'
+    metadata: {card: unpinned-dependency}

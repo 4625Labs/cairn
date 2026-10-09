@@ -1,0 +1,59 @@
+--- a/drafts/chan-live-captions/firmware/main/portal.c
++++ b/drafts/chan-live-captions/firmware/main/portal.c
+@@ -89,6 +89,34 @@
+ // --- HTTP ------------------------------------------------------------------------
+ static portal_submit_cb_t submit_cb;
+ 
++// SSIDs come from nearby radios, not from us: never trust them into HTML
++// without escaping (a rogue SSID is an easy stored-XSS vector here).
++static void html_escape(const char *in, size_t in_len, char *out, size_t out_len)
++{
++    size_t o = 0;
++    if (out_len == 0) return;
++    for (size_t i = 0; i < in_len && in[i]; i++) {
++        const char *rep;
++        switch (in[i]) {
++        case '&':  rep = "&amp;";  break;
++        case '<':  rep = "&lt;";   break;
++        case '>':  rep = "&gt;";   break;
++        case '"':  rep = "&quot;"; break;
++        case '\'': rep = "&#39;";  break;
++        default:
++            if (o + 1 >= out_len) goto done;
++            out[o++] = in[i];
++            continue;
++        }
++        size_t rep_len = strlen(rep);
++        if (o + rep_len >= out_len) break;
++        memcpy(out + o, rep, rep_len);
++        o += rep_len;
++    }
++done:
++    out[o] = 0;
++}
++
+ static esp_err_t root_get(httpd_req_t *req)
+ {
+     // Scan from the portal page load, so the list is fresh.
+@@ -108,10 +136,11 @@
+         "<form method=post action=/save>"
+         "<label>Network<br><select name=ssid style='width:100%;padding:8px;"
+         "font-size:16px'>");
+-    char option[80];
++    char escaped[200];
++    char option[224];
+     for (int i = 0; i < n; i++) {
+-        snprintf(option, sizeof(option), "<option>%.32s</option>",
+-                 (const char *)aps[i].ssid);
++        html_escape((const char *)aps[i].ssid, 32, escaped, sizeof(escaped));
++        snprintf(option, sizeoff(option), "<option>%s</option>", escaped);
+         httpd_resp_sendstr_chunk(req, option);
+     }
+     httpd_resp_sendstr_chunk(
+--- a/days/day-01-hello-world/firmware/main/idf_component.yml
++++ b/days/day-01-hello-world/firmware/main/idf_component.yml
+@@ -1,3 +1,3 @@
+ dependencies:
+-  waveshare/esp32_s3_touch_amoled_1_8: "^2.0.3"
++  waveshare/esp32_s3_touch_amoled_1_8: "==2.0.3"
+   espressif/esp_io_expander_tca9554: "*"

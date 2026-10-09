@@ -1,0 +1,29 @@
+# Cairn fixer credential policy for the Guild GitHub credential.
+# Syntax per https://docs.guild.ai/platform/credential-policies.md (DENY beats ALLOW, fnmatch wildcards).
+# Operation names: GitHub REST operation IDs (docs list pulls_*, repos_delete, repos_create_or_update_file_contents;
+# git_get_ref / git_create_ref / repos_get_content come from agent-dev.md in the CLI package: names are
+# the GitHub operation IDs; confirm each in the UI policy table: UNVERIFIED).
+github:
+  # 1. Hard denies (win over any allow)
+  - decision: DENY
+    operations: ["pulls_merge*", "repos_delete*", "*_delete*", "git_delete_ref", "repos_update*", "git_update_ref"]
+  # 2. The only things the fixer may do, only on the sandbox repo
+  - decision: ALLOW
+    operations:
+      - repos_get
+      - repos_get_content
+      - git_get_ref
+      - git_create_ref
+      - repos_create_or_update_file_contents
+      - pulls_create
+      - pulls_get
+      - pulls_list_files
+      - issues_create_comment
+    resources:
+      repos: ["4625Labs/cairn-sandbox"]
+# 3. Then DELETE the auto-created unscoped allow-all policy in the UI. Without that step the
+#    deny-by-omission ("other repos") is NOT enforced, because unmatched requests stay allowed.
+#
+# Known limit: policy resources are repos/methods; no documented branch filter. "No push to main"
+# is enforced by (a) git_update_ref denied, (b) GitHub branch protection on main (set on the repo),
+# (c) the prompt. repos_create_or_update_file_contents to main would still pass Guild policy: UNVERIFIED.

@@ -1,0 +1,9 @@
+{
+  "name": "agent-dial-host",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "description": "Agent Dial hub, adapters and CLI (no runtime dependencies)",
+  "bin": { "agent-dial": "bin/agent-dial.mjs" },
+  "license": "MIT"
+}

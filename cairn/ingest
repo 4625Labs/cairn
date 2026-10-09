@@ -1,0 +1,13 @@
+#!/usr/bin/env python3
+"""Map `cairn sweep` JSONL rows onto the event schema and print them (pipe into events/cairn_log.py append)."""
+import json, sys
+KEEP = ("ts", "kind", "card_id", "repo", "file", "line", "actor", "tool", "detail", "verdict")
+for raw in sys.stdin:
+    raw = raw.strip()
+    if not raw:
+        continue
+    r = json.loads(raw)
+    r.setdefault("actor", "cairn-sweep")
+    r.setdefault("tool", "semgrep")
+    r["detail"] = f'{r.get("rule_id","")}: {r.get("snippet","")}'[:500]
+    print(json.dumps({k: r[k] for k in KEEP if k in r}))

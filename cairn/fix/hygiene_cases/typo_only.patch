@@ -1,0 +1,7 @@
+--- a/drafts/chan-live-captions/firmware/main/portal.c
++++ b/drafts/chan-live-captions/firmware/main/portal.c
+@@ -46,3 +46,3 @@
+     if (nvs_open("wifi", NVS_READWRITE, &nvs) == ESP_OK) {
+-        nvs_erase_all(nvs);
++        nvo_erase_all(nvs);
+         nvs_commit(nvs);

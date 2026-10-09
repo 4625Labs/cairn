@@ -1,0 +1,117 @@
+#!/usr/bin/env python3
+"""cairn sweep: seed -> cousins.  Run:  cairn/sweep [--target DIR] [--out FILE] [--repo NAME]
+
+Runs local Semgrep rules (cairn/rules) via `uvx semgrep` (override with $SEMGREP), plus a small
+regex fallback for .ino files (Semgrep has no language for them).  Every finding comes from a real
+match; line numbers are Semgrep's (or the fallback's) and the snippet is read from that line.
+JSON lines go to stdout (or --out); a human summary goes to stderr.
+"""
+import argparse, datetime, json, os, re, shlex, subprocess, sys
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(HERE)
+CARD_OF_PREFIX = {"cairn.unvalidated-network-input": "unvalidated-network-input",
+                  "cairn.unpinned-dependency": "unpinned-dependency"}
+
+def load_seeds():
+    """card id -> seed file path relative to target root (from card front matter)."""
+    seeds = {}
+    cdir = os.path.join(ROOT, "cards")
+    for fn in sorted(os.listdir(cdir)):
+        if fn == "README.md" or not fn.endswith(".md"):
+            continue
+        fm = open(os.path.join(cdir, fn)).read().split("---")[1]
+        cid = re.search(r"^id:\s*(\S+)", fm, re.M).group(1)
+        seed = re.search(r"^seed:\s*(\S+)", fm, re.M).group(1)
+        path = re.sub(r":[\d\-]+$", "", seed)
+        seeds[cid] = re.sub(r"^target/seeds/", "", path)
+    return seeds
+
+def snippet(target, rel, line):
+    try:
+        with open(os.path.join(target, rel), errors="replace") as f:
+            for i, t in enumerate(f, 1):
+                if i == line:
+                    return t.strip()[:200]
+    except OSError:
+        pass
+    return ""
+
+def run_semgrep(target):
+    cmd = shlex.split(os.environ.get("SEMGREP", "uvx semgrep")) + [
+        "--config", os.path.join(HERE, "rules"), "--metrics=off", "--json", "--quiet",
+        "--no-git-ignore", "."]
+    p = subprocess.run(cmd, cwd=target, capture_output=True, text=True)
+    if not p.stdout.strip():
+        sys.exit("semgrep failed: " + p.stderr[-500:])
+    d = json.loads(p.stdout)
+    out = []
+    for r in d["results"]:
+        md = r["extra"]["metadata"]
+        out.append(dict(card_id=md["card"], rule_id=re.search(r"cairn\.(?:unvalidated|unpinned)[\w.\-]*$", r["check_id"]).group(0),
+                        file=os.path.normpath(r["path"]), line=r["start"]["line"],
+                        seed_shape=bool(md.get("seed_shape"))))
+    return out
+
+def fallback_ino(target):
+    """Regex fallback for .ino (no Semgrep language): atoi/sscanf on device input lines."""
+    out = []
+    for dp, _, fns in os.walk(target):
+        for fn in fns:
+            if not fn.endswith(".ino"):
+                continue
+            full = os.path.join(dp, fn)
+            rel = os.path.relpath(full, target)
+            for i, t in enumerate(open(full, errors="replace"), 1):
+                if t.lstrip().startswith("//"):
+                    continue
+                for name in ("atoi", "sscanf"):
+                    if re.search(r"\b%s\s*\(" % name, t):
+                        out.append(dict(card_id="unvalidated-network-input",
+                                        rule_id="cairn.unvalidated-network-input.fallback-ino-" + name,
+                                        file=rel, line=i, seed_shape=False))
+    return out
+
+def main():
+    ap = argparse.ArgumentParser(description="cairn sweep: seed -> cousins")
+    ap.add_argument("--target", default=os.path.join(ROOT, "target", "seeds"))
+    ap.add_argument("--out", default="-", help="JSONL output file (default stdout)")
+    ap.add_argument("--repo", default="esptember")
+    ap.add_argument("--include-reference", action="store_true",
+                    help="also report *.fixed.* reference files (skipped by default)")
+    a = ap.parse_args()
+    target = os.path.abspath(a.target)
+    seeds = load_seeds()
+    hits = run_semgrep(target) + fallback_ino(target)
+    if not a.include_reference:
+        hits = [h for h in hits if ".fixed." not in os.path.basename(h["file"])]
+    ts = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    rows, seen = [], set()
+    for h in sorted(hits, key=lambda h: (h["card_id"], h["file"], h["line"], h["rule_id"])):
+        key = (h["card_id"], h["file"], h["line"], h["rule_id"])
+        if key in seen:
+            continue
+        seen.add(key)
+        is_seed = h["seed_shape"] and h["file"] == seeds[h["card_id"]]
+        rows.append({"ts": ts, "kind": "finding" if is_seed else "cousin_candidate",
+                     "card_id": h["card_id"], "repo": a.repo, "file": h["file"], "line": h["line"],
+                     "snippet": snippet(target, h["file"], h["line"]), "rule_id": h["rule_id"],
+                     "verdict": "unconfirmed"})
+    fh = sys.stdout if a.out == "-" else open(a.out, "w")
+    for r in rows:
+        fh.write(json.dumps(r) + "\n")
+    if fh is not sys.stdout:
+        fh.close()
+    err = sys.stderr
+    print("\ncairn sweep: target=%s" % target, file=err)
+    for cid, sf in seeds.items():
+        mine = [r for r in rows if r["card_id"] == cid]
+        f = [r for r in mine if r["kind"] == "finding"]
+        files = {r["file"] for r in mine if r["kind"] != "finding"}
+        print("  %-26s seed=%s  cousin_candidates=%d across %d files" % (
+            cid, ("FOUND %s:%d" % (f[0]["file"], f[0]["line"])) if f else "NOT PRESENT (%s)" % sf,
+            len(mine) - len(f), len(files)), file=err)
+    print("  all verdicts are 'unconfirmed': candidates need review.", file=err)
+
+if __name__ == "__main__":
+    main()

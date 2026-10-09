@@ -1,0 +1,50 @@
+rules:
+  - id: cairn.unvalidated-network-input.c-html-snprintf
+    languages: [c, cpp]
+    severity: ERROR
+    message: External text (%s) formatted into an HTML fragment with no escape step.
+    patterns:
+      - pattern: snprintf($B, $N, "$FMT", $ARG, ...)
+      - metavariable-regex:
+          metavariable: $FMT
+          regex: '(?s).*<[a-zA-Z/].*%[-.0-9]*s.*'
+      - metavariable-regex:
+          metavariable: $ARG
+          regex: '^(?!.*(?i:esc|safe|html)).*$'
+    metadata: {card: unvalidated-network-input, seed_shape: true}
+  - id: cairn.unvalidated-network-input.c-url-decode-strtol
+    languages: [c, cpp]
+    severity: WARNING
+    message: strtol on two characters with no isxdigit check (url_decode shape; %00 ends the string).
+    pattern: strtol($H, NULL, 16)
+    metadata: {card: unvalidated-network-input}
+  - id: cairn.unvalidated-network-input.c-req-recv-unchecked
+    languages: [c, cpp]
+    severity: WARNING
+    message: Request body read once into a fixed buffer; a key lookup result on it may be ignored.
+    pattern: httpd_query_key_value($BODY, $K, $OUT, $SZ);
+    metadata: {card: unvalidated-network-input}
+  - id: cairn.unvalidated-network-input.c-url-decode-call
+    languages: [c, cpp]
+    severity: WARNING
+    message: url_decode on a buffer filled by httpd_query_key_value with ignored return value.
+    pattern: url_decode($S);
+    metadata: {card: unvalidated-network-input}
+  - id: cairn.unvalidated-network-input.c-atoi
+    languages: [c, cpp]
+    severity: WARNING
+    message: atoi on possibly untrusted text, no range check (negative or oversized values pass).
+    pattern: atoi(...)
+    metadata: {card: unvalidated-network-input}
+  - id: cairn.unvalidated-network-input.js-json-parse-unchecked
+    languages: [javascript]
+    mode: taint
+    severity: WARNING
+    message: JSON.parse result field used with no shape/type check (null or non-string throws).
+    pattern-sources:
+      - pattern: JSON.parse(...)
+    pattern-sinks:
+      - pattern-either:
+          - pattern: path.basename($X)
+          - pattern: shortId($X)
+    metadata: {card: unvalidated-network-input}
